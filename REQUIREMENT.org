@@ -1,7 +1,35 @@
-* =Ferrisp= Workshop Step =Err=
+* =Ferrisp= Workshop Step =0=
   Hi there! Thanks for checking out the workshop materials for =Ferrisp=, a simple and rusty LISP
   implementation. If you haven't already, you really ought to checkout the [[file:README.org][README.org]] file first
   which will better explain what is going on here!
 
-  This file is a placeholder for the actual requirement files that will accompany each module. After
-  checking out the =README=, checkout a tagged version and come back here!
+** Requirements
+
+   This is step 0, which means at the workshop we won't be doing much programming.... /yet/;
+   consequentially, there isn't much to do.
+
+   What I do want you to do, however, is get familiar with [[https://rust-lang.org][Rust]]. In particular:
+   - I want you to [[https://rustup.rs][install it]] on your machine, if you haven't already.
+     + Using Rustup is the recommended way to get Rust and will also get you running with =Cargo=,
+       Rust's (two in one) package manager and build tool.
+     + Using Rustup will also allow you to trivially install whatever version of Rust you need,
+       along with useful components like =rls= and =rustfmt=.
+   - Checkout the documentation:
+     + Rust is notable for the quality and style of its documentation, both for the language itself
+       and for the standard library. These together are priceless artifacts in your journey to learn
+       Rust.
+     + For the former, [[https://doc.rust-lang.org/stable/book/][The Rust Programming Language]]
+     + For the latter, [[https://doc.rust-lang.org/std/][doc.rust-lang.org/std/]]
+     + Finally, it's worth noting that =Cargo=, the tool installed alongside Rust when using Rustup,
+       will allow you to generate all documentation in a given Rust project, both the project /and/
+       its dependencies.
+   - For quick examples of concepts and programming patterns from Rust, checkout:
+     + [[https://doc.rust-lang.org/rust-by-example/index.html][Rust By Example]]
+     + [[https://github.com/rust-lang/rustlings][Rustlings]]
+   - Finally, after installing Rust and Cargo, get a ="Hello World!= going:
+     1. While inside this directory, run: =cargo init ferrisp=
+     2. Then: =cargo run=
+        - This will build and run your brand new =bin= project.
+
+          
+   Welcome to the Rust Programming Language! When you are ready, jump to version =0.1.0= of Ferrisp.
