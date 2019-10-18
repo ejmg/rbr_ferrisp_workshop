@@ -1,7 +1,30 @@
-* =Ferrisp= Workshop Step =Err=
-  Hi there! Thanks for checking out the workshop materials for =Ferrisp=, a simple and rusty LISP
-  implementation. If you haven't already, you really ought to checkout the [[file:README.org][README.org]] file first
-  which will better explain what is going on here!
+* =Ferrisp= Workshop Step =1=
+  Now that you are somewhat familiar with the territory that lays before you, let's get right to
+  it.
 
-  This file is a placeholder for the actual requirement files that will accompany each module. After
-  checking out the =README=, checkout a tagged version and come back here!
+  For step 1 of this workshop, we're going to get basic I/O from a user via the terminal.
+
+** Requirements
+
+   1. Create a Rust =bin= project if you haven't already
+   2. In =main.rs=, create program logic such that a user is presented with a prompt that:
+      1) Takes their input
+      2) Prints it back to them
+      3) Repeat
+
+   That's it!
+
+** Hints
+   
+   There isn't too much behind this one. Checkout the resources mentioned in step 0 of this
+   project. While you could factor out the logic into a separate method that is called from within
+   =main=, that isn't necessary unless you really want that.
+
+   Similarly, feel free to checkout [[https://crates.io][Crates.io]] and see what solutions you could find for reading user
+   input. Making a REPL prompt that can allow a user to move their cursor, go back, edit their
+   input, etc., is a whole project into itself.
+
+   Finally, something to be aware of is how user input is ultimately handled. =fn main()=, by default,
+   returns =()=, also known at the type [[https://doc.rust-lang.org/std/primitive.unit.html][unit]]. This is true for any function that doesn't have a return
+   type, e.g. =fn foo() -> i32=, but has subtle consequences in the case of =main=. Explore what type of
+   return errors you will have to handle with IO, and what "handling" itself actually means.
