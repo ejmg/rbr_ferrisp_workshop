@@ -1,7 +1,80 @@
-* =Ferrisp= Workshop Step =Err=
-  Hi there! Thanks for checking out the workshop materials for =Ferrisp=, a simple and rusty LISP
-  implementation. If you haven't already, you really ought to checkout the [[file:README.org][README.org]] file first
-  which will better explain what is going on here!
+⬛ =Ferrisp= Workshop Step =4=
+  You have a parser that can extract the structure of Ferrisp expressions... now what do you do with it?
 
-  This file is a placeholder for the actual requirement files that will accompany each module. After
-  checking out the =README=, checkout a tagged version and come back here!
+** Teasing Out Requirements
+*** Happy Accidents
+
+    Stop for a moment and reflect on the program thus far: what does it do?
+    - the parser extracts structure out of the input
+    - the types capture the syntax of valid inputs
+
+     
+    Wait - think about that again: the program extracts structure and represents a valid
+    program. Thus, in one fell swoop via simple types and parser combinators, is a representation of
+    a Ferrisp program's Abstract Syntax Tree.
+
+    There was no scanning. There was no lexing. There were no formal grammars or regex's used to
+    extract the tokens of a program out for us. Using parser combinators allows lexing, parsing, and
+    generating an AST to happen in basically one step. Not only that, it's pretty damn efficient, at
+    least for the scale Ferrisp operates at. It almost feels like cheating, doesn't it?
+
+*** Eval Or Die
+    
+    So the code thus far yields an AST.... big deal, what to do with it? Having syntactic structure
+    in of itself does nothing for us, /but/ given the parser returns what ought to be the structure
+    of valid program, where program ~= a set of nested expressions, this means that /evaluating/ the
+    expressions yields unto us the semantics of our program... i.e., we find out what the program
+    /means/... i.e. we achieve /computation/...
+
+    ...
+
+    ...
+
+    ...
+
+    ... *nice* 🙇🏽💾🤖.
+
+*** Taking a not-so-random walk along the AST
+
+    How to evaluate our expressions? /Match on the structures of the program/. Our Ferris expressions
+    are simply atoms or different types of nested expressions. Just as the parser works its way from
+    the top-down, outside-in, it's now time to evaluate the resulting expression from the
+    inside-out, bottom-up.
+
+    Alright, so that isn't the best way of putting, nor is it exactly correct, but the idea is that
+    evaluation occurs in a manner similar to parsing. We have an AST and evaluation means walking
+    down from the root to each sub-tree until atoms (AKA terminal nodes, AKA leaves) are found. Once
+    the most primitive components of an expression are found, it's time to "move up" the AST by
+    reducing the tree. Given each subtree represents an expression where the parent node is the
+    function and the children are the inputs, evaluating an AST is a matter of reducing its subtrees
+    until the root itself is reached and evaluated upon the results of its children.
+
+*** Learning how to walk
+
+    What does this mean with respect to the program as it stands? Lots of matching. Given a
+    successfully parsed expression, we match on its outer most enumeration. We then incrementally
+    move our way into the expression until atoms are encountered and handled as necessary. This
+    means things such as encountering the primitive operation =+=. When this happens, we know
+    immediately that the next two things that in the given sub-expression *need* to evaluate to
+    numerical values in order to /apply/ the function to them.
+
+** Requirements
+   1. create a new file =ast.rs=
+   2. in this file, define a set of methods that evaluate an AST given by the parser
+
+      
+   If this sounds like not that much... don't be fooled!
+** Hints
+   
+   Things get a bit trickier from here. You will now have to start worrying about things like Result
+   types more, particularly as you juggle between the results of the parser, the expressions
+   evaluated, and what you actually want to return to the REPL.
+
+   As a result, there are actually a few things you will probably want to solve:
+   - String representation of expressions
+   - Return types of the parser, the AST evaluator, and the REPL itself
+
+   This module is a lot harder than the others in terms of the number of concepts you need to
+   simultaneously reason about and integrate into the code base. Don't be intimidated and don't feel
+   bad if it all doesn't click at once. If there is anything to take away from the module, this is
+   it.
