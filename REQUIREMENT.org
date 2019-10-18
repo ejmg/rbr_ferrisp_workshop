@@ -1,7 +1,135 @@
-* =Ferrisp= Workshop Step =Err=
-  Hi there! Thanks for checking out the workshop materials for =Ferrisp=, a simple and rusty LISP
-  implementation. If you haven't already, you really ought to checkout the [[file:README.org][README.org]] file first
-  which will better explain what is going on here!
+* =Ferrisp= Workshop Step =2=
+  Alright, now that a basic REPL is setup (well, it is more of a RPL, it doesn't evaluate much yet),
+  it's time to begin parsing input.
 
-  This file is a placeholder for the actual requirement files that will accompany each module. After
-  checking out the =README=, checkout a tagged version and come back here!
+
+** Teasing out Requirements
+*** How to parse?
+
+    There are a lot of ways to parse input when it comes to programming language design, but for
+    Ferrisp a different approach will be taken from most programming language lexer/parsers.
+
+    In place of tokenizing based out of a regex or using a scanner/lexer, which in turn feeds into a
+    parser, Ferrisp will be built out using [[https://en.wikipedia.org/wiki/Parser_combinator][Parser Combinators]]. Why? Aside from contriving an
+    alternative approach to implementing a Lisp:
+    1. Parser Combinators allow you to abstract away lower level details, such as the handling of
+       literal bits and bytes.
+    2. In many cases, they provide a more intuitive way to think about handling program input (and
+       output).
+    3. In the context of Rust, they provide a strong example and use-case of how Rust's powerful
+       abstractions through its ownership model and types allow a functional twist on systems
+       programming that is both *safe*, *fast*, and (memory) *efficient*.
+
+    To this end, Ferrisp will use the [[https://github.com/Geal/nom/][Nom]] parser combinator framework.
+
+**** How do parser combinators work?
+
+     Parser combinators can be best thought of as a type of function that take an input value, =I=,
+     and returns a tuple of values =(I, O)=, where =I= is the same type as the input and =O= is the output
+     value.
+
+     As functions, parser combinators allow us to compose new parser combinators by composing over
+     smaller, more primitive, parser combinators that represent the "base cases" of our input type
+     =I=.
+
+     With =nom=, this is exactly the case. Take the definition of the =IResult= type, a critical
+     component of the framework:
+
+     #+BEGIN_SRC rust
+       type IResult<I, O, E = (I,ErrorKind)> = Result<(I, O), Err<E>>;
+     #+END_SRC
+
+     =IResult= is thus a *type alias* over Rust's built in =Result= enum type that has a tuple for its
+     =Ok(T)= variant and an (optional) error type =E= which is itself also a tuple of =(I, ErrorKind)=,
+     where =I= is the same type as the input and =ErrorKind= is a =nom= enum that represents which parser
+     combinator returned an error.
+
+     From here, one can begin to define parsers that handle and return the variant values of
+     =IResult=. To get a better idea and examples, checkout the [[https://docs.rs/nom/5.0.1/nom/#parser-combinators][documentation]] provided for nom,
+     including a [[https://github.com/Geal/nom/blob/master/doc/choosing_a_combinator.md][list of recommended parser combinators]]. Note that the guide is using nom parsers
+     pre-v5.0 which were macro based. While the semantics are more or less equivalent, it is highly
+     recommended you use the new "normal" function based approach. To understand why that happened,
+     you can learn more [[https://github.com/Geal/nom/blob/master/doc/upgrading_to_nom_5.md#from-macros-to-functions][here]].
+
+     As an aside, using type aliases is a common programming pattern in Rust and is borrowed from
+     other languages like C++ and Haskell. Furthermore, redefining and extending types out of Rust's
+     standard library is another common pattern in Rust. In the case of nom, it allows a user to
+     model their domain in terms of parser combinators and reason about them as parser combinators,
+     rather than having to worry about the specifics of Rust's standard =Result= type.
+
+*** What to parse?
+
+    A [[https://en.wikipedia.org/wiki/Lisp_(programming_language)][Lisp]] is, first and foremost, a [[https://en.wikipedia.org/wiki/S-expression][list of symbols]]. Given Ferrisp is a fairly minimal
+    implementation, only the following values are of concern:
+    - Atoms
+      + signed integer values
+      + string literals,
+        * i.e. string that read in literally have an outer set of quotes such as =​"\"FooBar\""​=, but can
+           *also* have inner escaped sequences such as =​"\"Foo\nBar\""​=
+        * Be mindful of examples like =​"\"Foo\nBar\""​=. To test your parser-combinators against such a
+           value, you would need to actually feed in the string value of =​"\"Foo\\nBar\""​= ...
+      + Keywords, which in lisp are typically denoted by the prefix value of =:=.
+      + Primitive operations:
+        * Add: =+=
+        * Sub: =-=
+        * Mult: =*=
+        * Div: =/=
+        * Eq: ~=~
+        * Not: =not=
+        * Println: =println=
+      + =true=, =false=, and =nil=
+      + Symbols, which are a string of characters prefixed by the symbol =​'​=, i.e. =Quote=.
+    - The following special symbols:
+      * Quote: =​'​=
+      * back-quote: =`=
+      * unquote: =~=
+        
+    Focus on creating parsers that can capture these values first, and then later these
+    parser-combinators can be pulled together to handle entire expressions...
+
+    *Note*, something you will need to handle (or at least try to if you feel up to it!) is whitespace
+    (including =\n=, =\r=, and =\t=) and commas, which should be thrown away. That way inputs like =​" 123 "​=
+    return as =​"123"​=
+
+** Requirements
+
+   1. Create a file =parser.rs=, where all your parser logic will reside.
+   2. In this file, define parser combinators that extract the primitive types discussed in the
+      previous section.
+   3. For each parser, try to create a set of tests that check for intended behavior.
+      - Rust and Cargo have strong [[https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html][built-in unit testing facilities]] for doing exactly this.
+
+** Hints
+   Generally speaking, your parser combinators will look like: 
+
+   #+BEGIN_SRC rust
+     fn my_parser(i: &str) -> IResult<&str, &str> {
+         built_in_nom_combinator(i)
+     }
+
+     fn other_parser(i: &str) -> IResult<&str, &str> {
+         other_nom_parser(
+             my_parser,
+             yet_another_nom_parser,
+         )(i)
+     }
+   #+END_SRC
+
+   Which is to say, you should focus on building your custom combinators from smaller ones provided
+   by nom and then further chain them together to handle various cases for input. This general
+   pattern will apply all the way through to our end result, but it's important to take this to
+   heart now.
+
+   *Importantly*, each module of =nom= has two versions of its parser combinators. One for Streaming
+   inputs and another for inputs which are Complete. You will almost certainly only want to use the
+   *complete* version of each parser combinator.
+
+   Furthermore, =nom='s documentation is your friend. For each module defined within the library, it
+   gives an overview of that module's combinators and for each specific parser combinator, there is
+   always a good example that demonstrates what it does.
+
+   Finally, do not get caught up in the type signatures of =nom='s parser combinators, whether the
+   examples themselves or the official function signatures. Play with your basic combinators and
+   examine their outputs to get an idea of what is happening. A great way to do this would be to
+   printout their results via =println!("{:?}", my_parser(input));=, which will give you the debugging
+   output for whatever value a parser combinator returns.
