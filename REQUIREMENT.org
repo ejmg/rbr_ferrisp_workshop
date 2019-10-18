@@ -1,7 +1,125 @@
-* =Ferrisp= Workshop Step =Err=
-  Hi there! Thanks for checking out the workshop materials for =Ferrisp=, a simple and rusty LISP
-  implementation. If you haven't already, you really ought to checkout the [[file:README.org][README.org]] file first
-  which will better explain what is going on here!
+* =Ferrisp= Workshop Step =3=
+  Starting at step 3, it's assumed that most primitive parser combinators are implemented for
+  Ferrisp. Now begins the work of putting them together and fleshing out the idea of what our AST
+  actually is, looks like.
 
-  This file is a placeholder for the actual requirement files that will accompany each module. After
-  checking out the =README=, checkout a tagged version and come back here!
+  Ideally, at the workshop, the notion of mapping our domain using types has already begun well
+  before step 3 actually kicks off. That said, for those reading this, it works out all the same.
+
+
+** Teasing out Requirements
+
+   Before addressing the final aspects of parsing input, it's necessary to make a detour about
+   types.
+
+   Rust is a strongly typed programming language and draws heavy inspiration from the ML family of
+   programming languages, such as OCaml and Haskell. Being strongly typed is reason why Rust can
+   make guarantees about  memory, concurrency, and speed simultaneously as a systems programming
+   language.
+
+   Without going into the technical and academic aspects into why and how types work and help
+   Rust provide facilities for safe, concurrent, and fast software, let's focus on how types can
+   allow us to map the domain of a problem.
+
+*** Typing your way out
+
+    Going back to the notion of S-expressions, the general syntactic structure of a Lisp lends
+    itself to easy representation and manipulation due to its extremely "normal" form,
+    i.e. everything is ultimately some kind of list or constant expression like =(+ 1 2)= or ="abc"=.
+
+    Consequentially, it makes sense to map these expected structures using Rust's type system such
+    that the semantics of inputs are retained after parsing and can be more easily extracted and
+    acted upon... but how is this done?
+
+**** Enum the Possibilities!
+
+     Lets take a generic Rust enum:
+     #+BEGIN_SRC rust
+       enum Foo {
+           Bar,
+           Buz,
+           Qux(Baz)
+       }
+     #+END_SRC
+
+     What does this represent, exactly? In Rust, enums are a form of [[https://en.wikipedia.org/wiki/Tagged_union][Tagged Unions]], AKA a Sum Type,
+     meaning that =Foo= is a type that can take on three independent variants: =Bar=, =Buz=, and
+     =Qux=. These variants are all of =Foo=, but none are equivalent or interchangeable (at least
+     without implementing the logic to make that possible). One way to think of an enum type is thus
+     a set of discrete and unique cases of a Thing, whatever that Thing may be.
+
+     Furthermore, look at =Qux=: notice that it has some other type, =Baz=, as an argument to it. In
+     Rust, this means that the variant =Qux= effectively acts as a constructor requiring a value of
+     type =Baz= to be constructed.
+
+**** It's Expressions all the way down
+
+     Why does any of this matter? Well, think about what our Lisp language "looks like" in terms of
+     types. Recall the [[https://en.wikipedia.org/wiki/S-expression][S-Expression article]]. An S-Expression can be thought of as one of two things:
+     - an atom
+       + i.e. some fundamental, potentially irreducible type, like a literal value =42=.
+     - an expression of the form =(x y)=, where =x= and =y= are themselves S-Expressions.
+
+     In other words, S-Expressions can be thought as values with an recursive relation. In Rust, this
+     may (naively) look like:
+
+     #+BEGIN_SRC rust
+       enum Expr {
+           Atom,
+           Sexp(Expr),
+       }
+     #+END_SRC
+
+     How would you tie in the primitives you have managed thus far? Does a recursive relationship
+     work for a Rust enum? Is having only two enum variants sufficient and/or the best way to tackle
+     this? Keep these issues in mind.
+
+*** "Combinator" in Parser Combinator
+
+    While the ideas of recursively defined types and enum are fresh, it's time to think about how
+    the elementary parsers defined in step =2= can be chained together to parse full Ferrisp
+    expressions like =(+ 1 1)=. With the given lisp expression, you need to handle:
+    - the outer parentheses
+    - the inner expression(s)
+      + Ask: What are they?
+
+       
+    Once you "parse out" the parenthesis, you now have to check the first value in the list. Is it
+    an atom? As a primitive operation, it is, but it entails the nature of the rest of the
+    expression, i.e. given =+=, we know that the next thing needs to be a number or an expression that
+    evaluates to a number, and so on, if it is to be correct.
+
+    Does that sound too simple? Because, implementation details aside, it is exactly that simple for
+    =(+ 1 1)=. But what about the expression =(+ 1 (/ 1 1))=? Or =(+ (* 1 2) (/ 3 3))=?
+
+    The truth is, once you can create a parser combinator that trivially handles a lisp expression
+    like =(+ 1 1)=, you are already well on your way to parsing increasingly complicated and nested
+    expressions. Create a combinator that handles delimiters and returns and inner expression, and
+    have yet another combinator that can take an inner expression and further parse out the inner
+    structure of the statement. What is an inner expression? Well, just whatever an outer expression
+    can be... or an atomic value 😉.
+
+** Requirements
+
+   1. If not yet under way yet, create a new file =types.rs=.
+   2. In this file, define the types that will makeup the structure of expressions that can make a
+      Ferrisp expression.
+   3. Adapt your current parsers to return values from the types you define
+   4. Create higher level combinators that chain together these elementary parsers to extract "fully
+      fledged" Ferrisp expressions.
+   5. Connect the parser to the REPL
+
+** Hints
+   
+   Of all the functions provided by nom, make sure to play close attention to those like =many0=,
+   =preceded=, =terminated=, and =delimited=.
+
+   In case the preceding section failed to adequately "express" the interrelation of th elementary
+   parser combinators thus far and the structure of Lisp expressions, then think over how chaining
+   and combining your basic parser combinators functions parallel to constructing proper Ferrisp
+   expressions from atoms and other Ferrisp expressions.
+
+   Recursive definitions in Rust will result in the compiler yelling at you because such a
+   definition has an unknowable size. In other words, the compiler has no clue how much memory to
+   allocate for the expression because, in theory, it could be infinitely nested. This is easily
+   solved with indirection... which means you probably want a [[https://doc.rust-lang.org/book/ch15-00-smart-pointers.html][pointer]]... 👀.
