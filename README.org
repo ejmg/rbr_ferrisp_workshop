@@ -1,0 +1,141 @@
+* =Ferrisp= Workshop
+  :PROPERTIES:
+  :TOC: ignore
+  :END:
+  #+begin_quote
+  As seen at [[https://rust-belt-rust.com/][Rust Belt Rust 2019!]]
+  #+end_quote
+
+* Outline
+  :PROPERTIES:
+  :TOC:      this
+  :END:
+  -  [[#summary][Summary]]
+    -  [[#ferrisp][Ferrisp]]
+    -  [[#workshop][Workshop]]
+    -  [[#inspiration][Inspiration]]
+  -  [[#setup][Setup]]
+  -  [[#organization][Organization]]
+    -  [[#how-to-use-this-project][How to use this Project]]
+  -  [[#contributing][Contributing]]
+    -  [[#ideas-for-ferrisp-extensions][Ideas for Ferrisp Extensions:]]
+  -  [[#license][License]]
+
+* Summary
+  This repository contains the code for implementing a naive Lisp called =Ferrisp= using the [[https://www.rust-lang.org/][Rust
+  Programming Language]]. By the end of the workshop, participants should be well on their way to
+  creating a lisp that achieves evaluation.
+** =Ferrisp=
+   Ferrisp, at it stands, is a trivial LISP based programming language. It doesn't do much, and
+   what it does isn't all that fancy or efficient!
+
+   Ferrisp has:
+   - Basic arithmetic
+   - Strings
+   - Quotes
+   - ???
+   - Love!
+
+   Given the limitations of a six hour workshop, =Ferrisp=, as it stands, is a very minimal
+   programming language - this is both a deficit and a feature 🙂. The idea is that at the end of
+   the workshop, I want participants to have features and extensions to Ferrisp in mind that they
+   can later try to implement and add to the language itself.
+
+   Furthermore, I just don't think trying to tackle a more extensively refined and advanced
+   programming language implementation would be very informative in a six hour block of time. The
+   idea is to show people how to get something going and working with rust while they actually
+   learn, not drown them with information and copy-paste snippets.
+** Workshop
+
+   The six hour workshop breaks down the implementation into modules where the new feature for
+   implementation is presented, requirements are discussed, and suggestions are made for how one
+   would begin to approach the problem. 
+
+   At the end of each module, a potential solution is presented and partially worked through to
+   help increase understanding of the Rust programming language, elicit conversation over
+   alternative approaches, and the pros/cons with respect to the design.
+
+   In spirit of the workshop outline described above, the workshop can thus be summarized!
+    
+   | Module | Hour          | Goal                                                                                              | Material                                                                                                                                 |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      0 | 09:00 - 10:00 | Introductions and Workshop Outline                                                                | Formally introducing Rust, clone project, and =Hello World=.                                                                               |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      1 | 10:00 - 11:00 | Start Ferrisp and REPL                                                                            | Cargo, Bin vs Lib, =main.rs=, handling I/O, and Crates.                                                                                    |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      2 | 11:00 - 12:00 | Start Parser and designing Ferrisp                                                                | Testing, introduce =Nom=, "Parser" in Parser Combinators, =struct=, =enum=, and thinking with types in Rust.                                   |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      - | 12:00 - 2:00  | Break/Lunch                                                                                       | -                                                                                                                                        |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      3 | 2:00 - 3:00   | Finish parser and connect with REPL                                                               | "Combinator" in Parser Combinators, modules, traits, and lifetimes.                                                                      |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      4 | 3:00 - 4:00   | Evaluation of input and going as far as possible                                                  | Match statements, control flow, error handling, and box types (=Rc=, =RefCell=, =Box=).                                                        |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+   |      5 | 4:00 - 5:00   | Extending beyond implementation thus far, AND/OR Time for catching up, AND/OR general discussion. | Alternatives to explore (types, design, features), Q/A on anything still confusing or not clear, and yelling at presenter for being bad. |
+   |--------+---------------+---------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------|
+
+   The end goal of the workshop is to help participants get a "real world" feel for what Rust
+   programming /can/ look like, get their hands dirty by direct participation/involvement, and
+   hopefully walk away with an idea of how certain problems are handled by the abstractions and
+   ergonomics provided by the Rust Programming Language.
+
+** Inspiration
+   It goes without saying that this workshop was only made possible thanks to the efforts and
+   brilliance of those before me; I'm just trying to do my part to help others learn Rust and that
+   programming languages are fun to build.
+
+   Key sources of inspiration that heavily influenced this workshop, whether directly or by fueling
+   my love of PL/T:
+   - [[https://github.com/kanaka/mal][Make a Lisp]] (MAL) project by [[https://twitter.com/bus_kanaka][Joel Martin]]
+   - [[https://github.com/Geal/nom][Nom]], a parser combinator framework, by [[http://unhandledexpression.com/][Geoffroy Couprie]]
+   - [[http://craftinginterpreters.com/][Crafting Interpreters]] by [[https://twitter.com/munificentbob][Bob Nystrom]]
+   - [[https://www.cs.rochester.edu/~scott/pragmatics/][Programming Languages Pragmatics]] by [[https://www.cs.rochester.edu/~scott/][Michael Scott]]
+   - [[https://doc.rust-lang.org/book/][The Rust Programming Language]] Book by [[https://twitter.com/carols10cents][Carol (Nichols||Goulding)]] and [[https://twitter.com/steveklabnik][Steve Klabnik]]
+
+   My long run goal for Ferrisp is to actually write up a nice set of accompanying blog posts that
+   help guide the reader through their implementation of Ferrisp in the tradition of MAL. Given my
+   current workload with school, that's not quite possible, but I hope to get around to that by
+   sometime around the beginning of next year.
+* Setup
+  Simply install the Rust Programming language, preferably via [[https://rustup.rs][Rustup]], clone this project, and
+  checkout the version you want to start with!
+* Organization
+  The project is tagged on a feature basis. After cloning and installing rust, simply run:
+  #+BEGIN_SRC 
+    # make sure you have the tags locally
+    git fetch --all --tags --prune
+    # checkout the tag version you want
+    git checkout tags/version <VERSION_NUMBER>
+  #+END_SRC
+
+  The project has been versioned with the following tagged releases:
+  - =0.0.1= :: Hello World (Module 0)
+  - =0.1.0= :: Begin REPL (Module 1)
+  - =0.2.0= :: Begin Parser (Module 2)
+  - =0.3.0= :: Finish Parser (Module 3)
+  - =0.4.0= :: Start Evaluation (Module 4)
+
+  A tagged =0.5.0= release will probably come after the workshop with a finished MVP implementation.
+
+  For each tagged module, you will find the requirements of the given module's feature in the
+  [[file:REQUIREMENT.org][REQUIREMENT.org]] file. For any version 0.X.0, the code will start with the solution code for the
+  prior version.
+** How to use this Project
+   Given that I provide the code, how do you follow along? I think the best way to approach the
+   workshop, whether an actual attendant or someone who finds this online, is to either:
+
+   1. make a separate project entirely and use this repository as a guided reference as you work
+      through the modules.
+   2. for each tagged module, keep all of your development on your own branch and work within the
+      repository until you achieve the goals of a given module.  
+      + Similarly, you could have one dev branch off of master and work through the entire project
+        on that single branch and checkout tagged modules as needed for checking/comparing
+        solutions.
+   
+* Contributing
+  Find a typo? Want to implement a feature discussed at the workshop? Think something can be done
+  better with documentation, code, or otherwise? Then please feel free to open a [[https://github.com/ejmg/rbr_ferrisp_workshop][PR]]!
+** Ideas for =Ferrisp= Extensions:
+   - *TODO* at conclusion of workshop!
+* License
+  - *TODO*
