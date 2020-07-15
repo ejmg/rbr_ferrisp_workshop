@@ -5,13 +5,20 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-mod parser;
-mod types;
+mod lib;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
+use crate::lib::parser::Parser;
+use crate::lib::types::{Ferr, Fexp};
+
 static PROMPT: &'static str = "🦀λ> ";
+
+fn run(input: &str) -> Result<Fexp, Ferr> {
+    let mut ast = Parser::parse(input)?;
+    Ok(ast)
+}
 
 fn main() {
     let mut rl = Editor::<()>::new();
@@ -21,7 +28,10 @@ fn main() {
         match input {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                print!("Input: {}", line);
+                match run(&line) {
+                    Ok(o) => println!("{}", o.as_str()),
+                    _ => panic!("BAD"),
+                }
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

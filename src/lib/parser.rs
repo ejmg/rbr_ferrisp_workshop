@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-use crate::types::{Atom, FeRet, Ferr, Fexp, Primitive};
+use crate::lib::types::{Atom, FeRet, Ferr, Fexp, Primitive};
 use std::rc::Rc;
 
 use nom::{
@@ -45,7 +45,7 @@ fn not_reserved<'a>(s: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a st
 fn valid_str<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // ASCII except for control characters, `"`, and `\` itself.
     let chars = " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}";
-
+    println!("symbol: {:#?}", i);
     take_while1(move |c| chars.contains(c))(i)
     // take_while_m_n(0, i.len() - 1, move |c| chars.contains(c))(i)
 }
@@ -55,6 +55,7 @@ fn valid_symbols<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a s
     // `.`, and whitespace. `:` are considered legal because parsers are assumed to handle logic
     // of quoted keywords, i.e. `':foo`, which would eval to `:foo`
     let chars = "!#$%&*+-/0123456789:<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+    println!("valid_symbol: {:#?}", i);
     take_while1(move |c| chars.contains(c))(i)
 }
 
@@ -62,10 +63,13 @@ fn valid_kw<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> 
     // ASCII except for control characters, special symbols in Ferrisp, brackets,
     // `.`, and whitespace. Does NOT include `:`
     let chars = "!#$%&*+-/0123456789<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
+    println!("valid_kw: {:#?}", i);
+
     take_while1(move |c| chars.contains(c))(i)
 }
 
 fn prim_numeric<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
+    println!("prim_numeric: {:#?}", i);
     alt((
         value(Primitive::Add, char('+')),
         value(Primitive::Sub, char('-')),
@@ -76,6 +80,8 @@ fn prim_numeric<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a 
 }
 
 fn prim_fn<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
+    println!("prim_fn: {:#?}", i);
+
     alt((
         value(Primitive::Not, tag("not")),
         value(Primitive::Println, tag("println")),
@@ -83,10 +89,12 @@ fn prim_fn<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>>
 }
 
 fn primitive<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
+    println!("primitive: {:#?}", i);
     alt((prim_numeric, prim_fn))(i)
 }
 
 fn special<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+    println!("special: {:#?}", i);
     alt((tag("`"), tag("'"), tag("~")))(i)
 }
 
@@ -95,6 +103,7 @@ fn special<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
 // }
 
 fn bool<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    println!("bool: {:#?}", i);
     alt((
         value(Atom::Bool(true), tag("true")),
         value(Atom::Bool(false), tag("false")),
@@ -102,18 +111,26 @@ fn bool<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
 }
 
 fn nil<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    println!("nil: {:#?}", i);
+
     value(Atom::Nil, tag("nil"))(i)
 }
 
 fn truthy_nil<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    println!("truthy_nil: {:#?}", i);
+
     terminated(alt((bool, nil)), multispace1)(i)
 }
 
 fn neg_int<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+    println!("neg_int: {:#?}", i);
+
     preceded(tag("-"), digit1)(i)
 }
 
 fn integer<'a>(i: &'a str) -> IResult<&'a str, i64, VerboseError<&'a str>> {
+    println!("integer: {:#?}", i);
+
     alt((
         map_res(recognize(neg_int), |s: &str| s.parse::<i64>()),
         map_res(digit1, |s: &str| s.parse::<i64>()),
@@ -121,6 +138,8 @@ fn integer<'a>(i: &'a str) -> IResult<&'a str, i64, VerboseError<&'a str>> {
 }
 
 fn comment<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
+    println!("comment: {:#?}", i);
+
     preceded(take_while1(|s: char| s == ';'), is_not("\r\n"))(i)
 }
 
@@ -133,16 +152,22 @@ fn comment<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
 fn esc_str<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // For whatever reason, \n is special in that it doesn't need to be escaped whatsoever
     // for the combinator to work as inptended.
+    println!("esc_str: {:#?}", i);
+
     escaped(valid_str, '\\', one_of(r#""n\"#))(i)
 }
 
 fn delim_esc<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // println!("fn delim_esc: {}", i);
+    println!("delim_esc: {:#?}", i);
+
     delimited(tag("\""), esc_str, tag("\""))(i)
 }
 
 fn trans_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
     // println!("fn string: {:?}", i);
+    println!("trans_string: {:#?}", i);
+
     escaped_transform(valid_str, '\\', |s: &str| {
         alt((
             value("\\", tag("\\")),
@@ -153,6 +178,8 @@ fn trans_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str
 }
 
 fn str_lit<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
+    println!("str_lit: {:#?}", i);
+
     alt((
         value(i.to_owned(), tag(r#""""#)),
         map_parser(delim_esc, trans_string),
@@ -160,14 +187,20 @@ fn str_lit<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
 }
 
 fn kw<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
+    println!("kw: {:#?}", i);
+
     map(preceded(tag(":"), valid_kw), |s: &str| s.to_string())(i)
 }
 
 fn symbol<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    println!("symbol: {:#?}", i);
+
     map(valid_symbols, |s| Atom::Symbol(String::from(s)))(i)
 }
 
 fn atom<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    println!("atom: {:#?}", i);
+
     alt((
         bool,
         nil,
@@ -180,6 +213,8 @@ fn atom<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
 }
 
 fn f_atom<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
+    println!("f_atom: {:#?}", i);
+
     map(atom, Fexp::FAtom)(i)
 }
 
@@ -187,6 +222,7 @@ fn f_atom<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
 // fn backquote<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {}
 
 fn quote<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
+    println!("quote: {:#?}", i);
     alt((
         map(preceded(tag("'"), s_exp(many0(parse_fexpr))), |exprs| {
             Fexp::Quote(exprs)
@@ -207,6 +243,7 @@ fn quote<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
 }
 
 fn func<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
+    println!("func: {:#?}", i);
     let inner_expr = map(tuple((parse_fexpr, many0(parse_fexpr))), |(x, xs)| {
         Fexp::Func(Rc::new(x), xs)
     });
@@ -215,6 +252,7 @@ fn func<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
 
 fn parse_fexpr<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
     // preceded(multispace0, alt((parse_FAtom, parse_Fn, parse_Quote)))(i)
+    println!("parse_fexpr: {:#?}", i);
     preceded(multispace0, alt((f_atom, func, quote)))(i)
 }
 
@@ -342,7 +380,6 @@ mod tests {
         let str_4 = "\"world\\n\\\"\"";
         let str_5 = r#""""#;
 
-        // HNNNNNNG NOT SURE IF THIS SHOULD ACTUALLY WORK WITHOUT ISSUE
         let str_6 = r#""wh\"at""#;
 
         let (rem_0, res_0) = str_lit(str_0).unwrap();
@@ -426,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_atoms() {
-        use crate::types::{Atom, Primitive::Add};
+        use crate::lib::types::{Atom, Primitive::Add};
         let a_0 = "+";
         let a_1 = "+ 123";
         let a_2 = "true 123";
@@ -440,7 +477,7 @@ mod tests {
 
     #[test]
     fn test_func() {
-        use crate::types::{
+        use crate::lib::types::{
             Atom,
             Atom::{Op, String, Symbol},
             Fexp::{FAtom, Func},
