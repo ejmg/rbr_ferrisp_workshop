@@ -1,135 +1,151 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
+//! # Parser
+//!
+//! This is the meat of the the application. A set of parser combinators are defined to parse valid
+//! input strings into their equivalent [`Fexp`](../types/enum.Fexp.html) representation. By the
+//! time the [`Parser`](../parser/struct.Parser.html) has finished, the resulting
+//! [`Fexp`](../types/enum.Fexp.html) effectively represents an AST for program evaluation. No further
+//! tranformations are necessary!
+//!
+//! The entry point for this module begins at the [`parse`](struct.Parser.html#method.parse), which
+//! just wraps around the top-level parser combinator [`parse_fexp()`](fn.parse_fexpr.html).
 use crate::lib::types::{Atom, FeRet, Ferr, Fexp, Primitive};
 use std::rc::Rc;
 
 use nom::{
     branch::alt,
     bytes::complete::{escaped, escaped_transform, is_not, tag, take_while, take_while1},
-    character::complete::{char, digit1, multispace0, multispace1, one_of},
-    combinator::{complete, cut, map, map_parser, map_res, recognize, value},
-    error::{context, convert_error, VerboseError},
+    character::complete::{char, digit1, multispace0, one_of},
+    combinator::{complete, cut, map, map_res, recognize, value},
+    error::{context, VerboseError},
     multi::many0,
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{delimited, preceded, tuple},
     Err, IResult,
 };
 
+/// Newtype declaration for our Parser.
+///
+/// Nom handles all data in-memory so declaring this struct explicitly is not necessary but is
+/// used to expose an API.
 pub struct Parser;
 
 impl Parser {
+    /// Parses a string of input into a [`FeRet`](../types/type.FeRet.html)
     pub fn parse(input: &str) -> FeRet {
         match complete(parse_fexpr)(input) {
             Ok((xs, x)) => Ok(x),
             Err(Err::Error(e)) | Err(Err::Failure(e)) => Err(Ferr::ErrTrace(e)),
-
             _ => unreachable!(),
         }
     }
 }
 
+/// captures whitespace characters, `\n`, `\r`, `\t`, normal whitespace, and `,`
+#[deprecated]
 fn crlf_wsc<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     let chars = " \t\r\n,";
 
     take_while(move |c| chars.contains(c))(i)
 }
 
-fn not_crlf_wsc<'a>(s: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    is_not(" \t\r\n,")(s)
-}
-
+/// captures all symbols that are not a reserved symbol or ws
+#[deprecated]
 fn not_reserved<'a>(s: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     is_not(" \t\r\n,^~@'`[](){}")(s)
 }
 
+/// Captures the internal content of a valid string. This is just a subset of ascii excluding
+/// control characters.
 fn valid_str<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // ASCII except for control characters, `"`, and `\` itself.
     let chars = " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}";
-    println!("symbol: {:#?}", i);
+    info!("symbol: {:#?}", i);
     take_while1(move |c| chars.contains(c))(i)
     // take_while_m_n(0, i.len() - 1, move |c| chars.contains(c))(i)
 }
 
+/// Captures the content of a valid symbol. This is just a subset of ascii excluding
+/// control characters and reserved symbols.
 fn valid_symbols<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // ASCII except for control characters, special symbols in Ferrisp, brackets,
     // `.`, and whitespace. `:` are considered legal because parsers are assumed to handle logic
     // of quoted keywords, i.e. `':foo`, which would eval to `:foo`
     let chars = "!#$%&*+-/0123456789:<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
-    println!("valid_symbol: {:#?}", i);
+    info!("valid_symbol: {:#?}", i);
     take_while1(move |c| chars.contains(c))(i)
 }
 
+/// Captures the content of a valid keyword. Like a [`valid_symbols()`], except prefixed with `:`.
+///
+/// [`valid_symbols()`]: fn.valid_symbols.html
 fn valid_kw<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
     // ASCII except for control characters, special symbols in Ferrisp, brackets,
     // `.`, and whitespace. Does NOT include `:`
     let chars = "!#$%&*+-/0123456789<=>?ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz";
-    println!("valid_kw: {:#?}", i);
+    info!("valid_kw: {:#?}", i);
 
     take_while1(move |c| chars.contains(c))(i)
 }
 
+/// Captures the [primitive _numeric_ functions](../types/enum.Primitive.html) built into Ferrisp,
+/// i.e. `+`, `-`, `*`, and `/`
 fn prim_numeric<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
-    println!("prim_numeric: {:#?}", i);
+    info!("prim_numeric: {:#?}", i);
     alt((
         value(Primitive::Add, char('+')),
         value(Primitive::Sub, char('-')),
         value(Primitive::Mul, char('*')),
         value(Primitive::Div, char('/')),
-        value(Primitive::Eq, char('=')),
     ))(i)
 }
 
+/// Captures the non-numeric [primitive functions](../types/enum.Primitive.html) built into Ferrisp,
+/// i.e. the logical operators `=` and `not`, and `println`
 fn prim_fn<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
-    println!("prim_fn: {:#?}", i);
+    info!("prim_fn: {:#?}", i);
 
     alt((
         value(Primitive::Not, tag("not")),
+        value(Primitive::Eq, char('=')),
         value(Primitive::Println, tag("println")),
     ))(i)
 }
 
+/// Top level [`Primitive`](../types/enum.Primitive.html) combinator. See also [`prim_numeric()`]
+/// and [`prim_fn()`].
+///
+/// [`prim_numeric()`]: fn.prim_numeric.html
+/// [`prim_fn()`]: fn.prim_fn.html
 fn primitive<'a>(i: &'a str) -> IResult<&'a str, Primitive, VerboseError<&'a str>> {
-    println!("primitive: {:#?}", i);
+    info!("primitive: {:#?}", i);
     alt((prim_numeric, prim_fn))(i)
 }
 
-fn special<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    println!("special: {:#?}", i);
-    alt((tag("`"), tag("'"), tag("~")))(i)
-}
-
-// fn list<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-//     delimited(tag("("), sep: G, second: H)
-// }
-
+/// Captures boolean types and returns an [`Atom`](../types/enum.Atom.html) with their value.
 fn bool<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
-    println!("bool: {:#?}", i);
+    info!("bool: {:#?}", i);
     alt((
         value(Atom::Bool(true), tag("true")),
         value(Atom::Bool(false), tag("false")),
     ))(i)
 }
 
+/// Captures nil type and returns an [`Atom`](../types/enum.Atom.html) with their value.
 fn nil<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
-    println!("nil: {:#?}", i);
+    info!("nil: {:#?}", i);
 
     value(Atom::Nil, tag("nil"))(i)
 }
 
-fn truthy_nil<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
-    println!("truthy_nil: {:#?}", i);
-
-    terminated(alt((bool, nil)), multispace1)(i)
-}
-
+/// Parses and captures a negative integer value.
 fn neg_int<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    println!("neg_int: {:#?}", i);
+    info!("neg_int: {:#?}", i);
 
     preceded(tag("-"), digit1)(i)
 }
 
+/// Parses and captures an integer value and returns an `i64` value.
 fn integer<'a>(i: &'a str) -> IResult<&'a str, i64, VerboseError<&'a str>> {
-    println!("integer: {:#?}", i);
+    info!("integer: {:#?}", i);
 
     alt((
         map_res(recognize(neg_int), |s: &str| s.parse::<i64>()),
@@ -137,38 +153,68 @@ fn integer<'a>(i: &'a str) -> IResult<&'a str, i64, VerboseError<&'a str>> {
     ))(i)
 }
 
-fn comment<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    println!("comment: {:#?}", i);
-
-    preceded(take_while1(|s: char| s == ';'), is_not("\r\n"))(i)
+/// Parser combinator for capturing an [`Atom::Number`](../types/enum.Atom.html).
+fn number<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
+    map(integer, Atom::Number)(i)
 }
 
-// fn wsc_wrapper<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
-//     map(separated_list(crlf_wsc, not_crlf_wsc), |_s: Vec<&str>| {
-//         _s.concat()
-//     })(i)
-// }
+/// Captures a Ferrisp comment, text of any length following a `;` until a newline, and returns
+/// a [`Fexp`](../types/enum.Fexp.html).
+///
+/// Note: This is a good example of workaround. Integrating a custom `Comment` variant of
+/// [`Atom`](../types/enum.Atom.html) may very well be better off here.
+fn comment<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
+    info!("comment: {:#?}", i);
 
+    map(
+        preceded(take_while1(|s: char| s == ';'), is_not("\r\n")),
+        |_| Fexp::FAtom(Atom::String("".to_string())),
+    )(i)
+}
+
+/// Combinator that wraps string input to handle known escape sequences.
+///
+/// This allows the parser to "see" into the captured string literal in order to find its complete
+/// value *or* to detect an deformed string literal with invalid escape values.
 fn esc_str<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    // For whatever reason, \n is special in that it doesn't need to be escaped whatsoever
-    // for the combinator to work as inptended.
-    println!("esc_str: {:#?}", i);
+    info!("esc_str: {:#?}", i);
 
     escaped(valid_str, '\\', one_of(r#""n\"#))(i)
 }
 
+/// Combinator that wraps string input to handle the inner value, i.e. all characters inside the
+/// first set of outer `""`.
 fn delim_esc<'a>(i: &'a str) -> IResult<&'a str, &'a str, VerboseError<&'a str>> {
-    // println!("fn delim_esc: {}", i);
-    println!("delim_esc: {:#?}", i);
+    // info!("fn delim_esc: {}", i);
+    info!("delim_esc: {:#?}", i);
 
     delimited(tag("\""), esc_str, tag("\""))(i)
+    // delimited(tag("\""), valid_str, tag("\""))(i)
 }
 
+/// Transforms a parsed string literal with escape values for internal representation. *Currently
+/// not used*.
+///
+/// This is for later implementation issues, such as the string representation of a literal versus
+/// its representation as a value to a function such as [`println`](../types/enum.Primitive.html)
+/// e.g. if the following were a standard REPL:
+/// ```
+/// > "wu tang"
+/// "wu tang"
+/// > (println "wu tang")
+/// wu tang
+/// > "is\nforever"
+/// "is\nforever"
+/// > (println "is\nforever")
+/// is
+/// forever
+/// ````
 fn trans_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
-    // println!("fn string: {:?}", i);
-    println!("trans_string: {:#?}", i);
+    // info!("fn string: {:?}", i);
+    info!("trans_string: {:#?}", i);
 
     escaped_transform(valid_str, '\\', |s: &str| {
+        info!("we made it");
         alt((
             value("\\", tag("\\")),
             value("\"", tag("\"")),
@@ -177,34 +223,40 @@ fn trans_string<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str
     })(i)
 }
 
+/// Parser combinator for capturing an [Atom::String](../types/enum.Atom.html), i.e. string
+/// literals.
 fn str_lit<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
-    println!("str_lit: {:#?}", i);
+    info!("str_lit: {:#?}", i);
 
     alt((
-        value(i.to_owned(), tag(r#""""#)),
-        map_parser(delim_esc, trans_string),
+        map(delim_esc, String::from), // map_parser(delim_esc, trans_string),
+        map(tuple((tag(r#"""#), tag(r#"""#))), |_| r#""""#.to_string()), // value(i.to_owned(), tag(r#""""#)),
     ))(i)
 }
 
+/// Parser combinator for capturing an [Atom::Kw](../types/enum.Atom.html).
 fn kw<'a>(i: &'a str) -> IResult<&'a str, String, VerboseError<&'a str>> {
-    println!("kw: {:#?}", i);
+    info!("kw: {:#?}", i);
 
     map(preceded(tag(":"), valid_kw), |s: &str| s.to_string())(i)
 }
 
+/// Parser combinator for capturing an [Atom::Symbol](../types/enum.Atom.html).
 fn symbol<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
-    println!("symbol: {:#?}", i);
+    info!("symbol: {:#?}", i);
 
     map(valid_symbols, |s| Atom::Symbol(String::from(s)))(i)
 }
 
+/// Top level [`Atom`](../types/enum.Atom.html) parser combinator.
 fn atom<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
-    println!("atom: {:#?}", i);
+    info!("atom: {:#?}", i);
 
     alt((
         bool,
         nil,
         map(primitive, Atom::Op),
+        number,
         map(str_lit, Atom::String),
         map(kw, Atom::Kw),
         // If all else fails, we then check for symbol status
@@ -212,17 +264,23 @@ fn atom<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {
     ))(i)
 }
 
+/// Parser combinator that transforms captured [`Atom`] values and maps them into their equivalent
+/// [`Fexp`] type.
+///
+/// [`Atom`]: ../types/enum.Atom.html
+/// [`Fexp`]: ../types/enum.Fexp.html
 fn f_atom<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
-    println!("f_atom: {:#?}", i);
+    info!("f_atom: {:#?}", i);
 
     map(atom, Fexp::FAtom)(i)
 }
 
-// fn unquote<'a><'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {}
-// fn backquote<'a>(i: &'a str) -> IResult<&'a str, Atom, VerboseError<&'a str>> {}
-
+/// Top level parser combinator for capturing a [`Fexp::Quote`](../types/enum.Fexp.html).
+///
+/// A special combinator is needed for quoted values for the handling of one of modern lisp's most
+/// famous features: its macro system.
 fn quote<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
-    println!("quote: {:#?}", i);
+    info!("quote: {:#?}", i);
     alt((
         map(preceded(tag("'"), s_exp(many0(parse_fexpr))), |exprs| {
             Fexp::Quote(exprs)
@@ -238,31 +296,34 @@ fn quote<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
         // map(preceded(tag("'"), symbol), |s| {
         //     Fexp::FAtom(Atom::Symbol(format!("'{}", s.as_str())))
         // }),
-        map(preceded(tag("'"), symbol), |s| Fexp::FAtom(s)),
+        map(preceded(tag("'"), symbol), Fexp::FAtom),
     ))(i)
 }
 
+/// Top level parser combinator for capturing [`Fexp::Func`](../types/enum.Fexp.html).
+///
+/// It is worth noting that `func()` is kicks off a recursive chain call for handling `Fexp` values
+/// that are possibly nested between normal function applications and quoted values.
 fn func<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
-    println!("func: {:#?}", i);
+    info!("func: {:#?}", i);
     let inner_expr = map(tuple((parse_fexpr, many0(parse_fexpr))), |(x, xs)| {
         Fexp::Func(Rc::new(x), xs)
     });
     s_exp(inner_expr)(i)
 }
 
+/// The top level parser combinator for the Ferrisp parser. This function takes in a string input
+/// and will return a [`Fexp`](../types/enum.Fexp.html).
+///
+/// `parse_fexpr()` checks the input for unyieldly whitespace padding and then applies the parser
+/// combinator for each major type of Ferrisp values.
 fn parse_fexpr<'a>(i: &'a str) -> IResult<&'a str, Fexp, VerboseError<&'a str>> {
     // preceded(multispace0, alt((parse_FAtom, parse_Fn, parse_Quote)))(i)
-    println!("parse_fexpr: {:#?}", i);
-    preceded(multispace0, alt((f_atom, func, quote)))(i)
+    info!("parse_fexpr: {:#?}", i);
+    preceded(multispace0, alt((comment, f_atom, func, quote)))(i)
 }
 
-/// Before continuing, we need a helper function to parse lists.
-/// A list starts with `(` and ends with a matching `)`.
-/// By putting whitespace and newline parsing here, we can avoid having to worry about it
-/// in much of the rest of the parser.
-///
-/// Unlike the previous functions, this function doesn't take or consume input, instead it
-/// takes a parsing function and returns a new parsing function.
+/// A higher-ordered function that handles S-expressions.
 fn s_exp<'a, O1, F>(inner: F) -> impl Fn(&'a str) -> IResult<&'a str, O1, VerboseError<&'a str>>
 where
     F: Fn(&'a str) -> IResult<&'a str, O1, VerboseError<&'a str>>,
@@ -309,16 +370,31 @@ mod tests {
 
         assert_eq!(
             comment(comment_0),
-            Ok(("\n", " Hello and welcome to my sick twisted mind "))
+            Ok((
+                "\n",
+                Fexp::FAtom(Atom::String(
+                    "".to_string() // " Hello and welcome to my sick twisted mind ".to_string()
+                ))
+            ))
         );
         assert_eq!(
             comment(comment_1),
-            Ok(("\r\n", "Hello and welcome to my sick twisted mind "))
+            Ok((
+                "\r\n",
+                Fexp::FAtom(Atom::String(
+                    "".to_string() //"Hello and welcome to my sick twisted mind ".to_string()
+                ))
+            ))
         );
 
         assert_eq!(
             comment(comment_2),
-            Ok(("\r\n", " Hello and welcome to my sick twisted mind "))
+            Ok((
+                "\r\n",
+                Fexp::FAtom(Atom::String(
+                    "".to_string() //" Hello and welcome to my sick twisted mind ".to_string()
+                ))
+            ))
         );
     }
 
@@ -426,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_quote() {
-        use crate::types::{
+        use crate::lib::types::{
             Atom::Symbol,
             Fexp::{FAtom, Quote},
         };

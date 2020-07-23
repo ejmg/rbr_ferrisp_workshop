@@ -1,24 +1,34 @@
-#![allow(unused_variables)]
-#![allow(dead_code)]
-
+//! # Types
+//!
+//! This module contains the types that make up the basis for our Ferrisp style lisp.
 use nom::error::VerboseError;
 use std::rc::Rc;
 
+/// *Fer*-risp *Res*-ult *T*-ype
+/// A type alias for the results of the Ferrisp [`Parser`](../parser/struct.Parser.html).
+///
+/// Trust me, I'm not happy about the name, either.
 pub type FeRet<'a> = Result<Fexp, Ferr<'a>>;
 
+/// The expression types of Ferrisp.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum Fexp {
+    /// An atom value
     FAtom(Atom),
+    /// A function value, which can be _applied_
     Func(Rc<Fexp>, Vec<Fexp>),
+    /// A quoted value, which
     Quote(Vec<Fexp>),
 }
 
+/// A Ferrisp error type
 #[derive(Debug, PartialEq, Clone)]
 pub enum Ferr<'a> {
     ErrTrace(VerboseError<&'a str>),
     ErrMsg(String),
 }
 
+/// Primitive functions built into Ferrisp
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum Primitive {
     Add,
@@ -30,24 +40,28 @@ pub enum Primitive {
     Println,
 }
 
+/// Atomic values in Ferrisp.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum Atom {
-    // Literals
+    /// Literals
     String(String),
+    /// Basic numeric types, 64-bit signed integers
     Number(i64),
 
-    // Primitive ops
+    /// Primitive ops
     Op(Primitive),
 
-    // :foo style keywords in lisp
+    /// :foo style keywords in lisp
     Kw(String),
 
     // Special Symbols
+    /// Nil
     Nil,
+    /// Boolean types
     Bool(bool),
 
-    // Everything else that isn't reserved
-    // is a "vanilla" symbol.
+    /// Symbols
+    /// Everything else that isn't reserved is a "vanilla" symbol.
     Symbol(String),
 }
 
@@ -73,10 +87,17 @@ impl Atom {
 }
 
 impl Fexp {
+    /// Converts a Ferrisp Expression into a Stringly value for representation.
     pub fn as_str(&self) -> String {
         match self {
             Fexp::FAtom(a) => match a {
-                Atom::String(s) => format!("{}", s.clone()),
+                Atom::String(s) => {
+                    if s == r#""""# {
+                        r#""""#.to_string()
+                    } else {
+                        format!("\"{}\"", s.clone())
+                    }
+                }
                 Atom::Number(n) => format!("{}", n),
                 Atom::Kw(kw) => format!(":{}", &kw),
                 Atom::Nil => String::from("nil"),

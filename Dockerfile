@@ -6,8 +6,12 @@ COPY ./ ./
 
 RUN cargo build --release
 
-RUN cargo install --path . --verbose
+RUN cargo install --path .
 
-# RUN cp target/release/rami /out/
+FROM debian:stable-slim as final 
 
+COPY --from=build /usr/local/cargo/bin/ferrisp /bin
+
+# run with logging passed in:
+# docker run --env RUST_LOG=info -it --rm --name ferrisp ferrisp
 CMD ["ferrisp"]
